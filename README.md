@@ -109,27 +109,26 @@ rm "C:\Users\I749275\Documents\Projetos\VS\BLP\po_automation\procurement.db" 2>/
 
 ## Assumptions
 
-
-1. Email sender and content trust:
+ ### Email sender and content trust
   The From: address is trusted as the requester identity.
   The content of the email is not verified to avoid prompt injection.
 
-2. Cost center fallback:
+### Cost center fallback:
   If the LLM cannot determine the cost center from the email,
   the requester's default_cost_center from master_data.json is used.
   If that is also missing, cost_center_code is null and the
   requisition goes to NEEDS_INFO.
 
-3. Blocked supplier:
+### Blocked supplier:
   Requisition moves to FLAGGED. A human must intervene.
   The system never auto-submits to a blocked supplier.
 
-4. Expired or missing quote:
+### Expired or missing quote:
   Requisition moves to FAILED. Amount unverified → do not submit.
 
-5. Approver substituition:
+### Approver substituition:
   No delegation of authority is in place.
 
-6. Sequential approvals only:
+### Sequential approvals only:
   The chain is strictly sequential. Parallel approval paths
   (e.g. two approvers at the same tier) are not supported.
