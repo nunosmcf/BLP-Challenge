@@ -1,149 +1,148 @@
-# PO Automation — FDE Take-Home Challenge
+# PO Automation — Setup & Run Guide
 
-An end-to-end purchase order automation pipeline built in Python. It ingests raw
-purchase request emails, extracts structured data using a local LLM via Ollama,
-routes the requisition through a configurable approval chain, and submits the approved
-order to the mock ERP API. Runs fully offline — no API keys, no subscriptions.
+End-to-end purchase order automation: reads procurement emails, extracts structured
+data with a local LLM, routes through a configurable approval chain, and submits
+approved orders to the ERP API.
 
 ---
 
-## How to run
+## Prerequisites
 
-### 1. Prerequisites
+| Requirement | Version | Notes |
+|---|---|---|
+| Python | 3.11 or later | 3.14 works |
+| Ollama | latest | [ollama.com](https://ollama.com) — runs locally, no API key needed |
 
-| Tool | Version | Notes |
-|------|---------|-------|
-| Python | 3.11 + | 3.14 works |
-| Ollama | latest | Download from https://ollama.com |
+---
 
-After installing Ollama, pull the model:
+## One-time setup
+
+### 1. Install Ollama
+
+Download and install from **https://ollama.com**. It installs a background service
+automatically.
+
+Then pull the model (downloads ~2 GB, takes a few minutes):
 
 ```powershell
 ollama pull llama3.2
 ```
 
-Ollama runs as a background service automatically after install. You can verify it is
-running with `ollama list`.
+Verify it worked:
 
-### 2. Install dependencies
-
-```bash
-cd BLP/po_automation
-python -m pip install -r requirements.txt
+```powershell
+ollama list
+# Should show: llama3.2
 ```
 
-### 3. Start the mock ERP API
+### 2. Create and activate the virtual environment
 
-```bash
-# From the challenge_data folder
-python "FDE Challenge-4th stage/mock_po_api.py"
-# Listens on http://127.0.0.1:8080
+```powershell
+cd C:\Users\I749275\Documents\Projetos\VS\BLP
+python -m venv venv
 ```
 
-### 4. Process emails (CLI)
+### 3. Install Python dependencies
 
-```bash
-cd BLP/po_automation
-python process_emails.py                              # process all 48 emails
-python process_emails.py ../challenge_data/...        # process one specific file
+```powershell
+venv\Scripts\python.exe -m pip install -r po_automation\requirements.txt
 ```
 
-### 5. Launch the dashboard
-
-```bash
-streamlit run app.py
-```
-
-Open http://localhost:8501 in your browser. You can:
-- See all requisitions and their state
-- Click a row to see extracted data, approval chain, flags
-- Approve / Reject at each step (simulating the approver's inbox)
-- Drop a new `.eml` file via the sidebar to process it live
+Dependencies installed:
+- `pdfplumber` — PDF text extraction
+- `ollama` — Python client for local LLM
+- `streamlit` — dashboard UI
+- `requests` — HTTP client for ERP API
+- `pillow>=11.0` — required by pdfplumber on Python 3.14
 
 ---
 
-## Architecture
+## Running the solution
 
-```
-email_parser.py   →   pdf_extractor.py   →   llm_extractor.py
-     │                                              │
-     └──────────────────────────────────────────────┘
-                         │
-                   workflow.py  (state machine)
-                    ├── master_data.py  (entity resolution, FX)
-                    ├── approval_engine.py  (chain builder)
-                    ├── database.py  (SQLite)
-                    └── po_client.py  (HTTP → mock ERP)
-                         │
-                       app.py  (Streamlit dashboard)
+You need **three things running** at the same time. Open a separate PowerShell window
+for each of the first two.
+
+### Window 1 — Mock ERP API
+
+```powershell
+venv\Scripts\python.exe "challenge_data\FDE Challenge-4th stage\mock_po_api.py"
 ```
 
-### State machine
+Leave this running. It listens on `http://127.0.0.1:8080`.
+You will see a log line for every PO submission.
 
+### Window 2 — Ollama (if not already running)
+
+Ollama usually starts automatically after install. Check:
+
+```powershell
+ollama list
 ```
-RECEIVED → EXTRACTING → NEEDS_INFO    (missing required fields)
-                      → FLAGGED       (blocked supplier, no quote, ambiguous)
-                      → AWAITING_APPROVAL → APPROVED → CREATING_PO → DONE
-                                         ↘ REJECTED
-                      → FAILED           (ERP error, LLM unreachable)
+
+If that errors, start it manually:
+
+```powershell
+ollama serve
 ```
+
+### Window 3 — Dashboard
+
+```powershell
+..\venv\Scripts\python.exe -m streamlit run app.py
+```
+
+Open **http://localhost:8501** in your browser.
 
 ---
 
-## Key design decisions
+### Process via the dashboard
 
-### Why Ollama + llama3.2?
-Runs entirely locally — no API key, no cost, no data leaving the machine. `llama3.2`
-is a compact 3B-parameter model that fits in 4 GB of RAM and handles structured JSON
-extraction reliably. The model is configurable in `src/config.py` — change to
-`llama3.1`, `mistral`, or any other Ollama model you have pulled.
-
-### Why SQLite?
-Zero infrastructure — just a file. Every requisition, its extracted data, approval
-chain, and log are in one place. For production you'd swap to PostgreSQL with one
-config change; the `database.py` module is the only place with SQL.
-
-### Prompt design
-The LLM prompt injects the full master data (suppliers, cost centers, employees, GL
-accounts) as context. This means entity resolution — "Acme Bearings" → `SUP-001` —
-happens inside the LLM call, not in post-processing string matching. It also tells
-the model today's date so it can flag expired quotes.
-
-The prompt asks for a fixed JSON schema with a `flags` array (blocked_supplier,
-expired_quote, wrong_total, ambiguous_request …) and a `missing_fields` array.
-This makes downstream routing deterministic — no regex, no heuristics.
-
-### Approval chain rules
-All three rules from `master_data.json` are implemented:
-- `self_approval_forbidden` — requester == cost_center_owner → skip that step
-- `duplicate_role_collapses` — same person in two roles → appears once
-- `approvals_are_sequential` — each step waits for the previous one
-
-### FX conversion
-All approval threshold comparisons happen in CHF. Rates come from `master_data.json`.
-The original currency is preserved for the ERP submission.
+In the sidebar, use **"Drop a new .eml here"** to upload and process a single email,
+or click **"Process ALL inbox emails"** to run all of them.
 
 ---
 
-## Assumptions
+## Using the dashboard
 
-| Topic | Assumption |
-|-------|-----------|
-| Email sender | The `From:` address is trusted and used to look up the requester employee. |
-| `[Attachment: file.pdf]` | Text-style references in plain-text emails are resolved against the `quotes/` folder by filename. |
-| Missing delivery date | Passed as `null` to the ERP. The ERP API marks this as a warning, not an error. |
-| `cost_centre` on PO | Mapped from cost center code. If absent, the ERP warns but still books. |
-| GL account | Best-guess mapping by item category. Not required by the ERP. |
-| Blocked supplier | Requisition moves to `FLAGGED` state; a human must intervene. |
-| Expired / no quote | Moves to `FLAGGED`. Amount cannot be verified → do not auto-submit. |
-| Finance deputy | EMP-702 is `deputy_for` EMP-701. The primary finance approver is used; the deputy is not auto-substituted (would need an escalation timer in production). |
+### Identity selector (sidebar)
+
+Select who you are before doing anything:
+
+| Selection | What you see | What you can do |
+|---|---|---|
+| Admin (full visibility) | All requisitions + PO history tab | View only, no approvals |
+| Any employee | Only requisitions awaiting YOUR approval | Approve or Reject |
+
+### Requisitions tab (Admin)
+
+- Filter by state using the dropdown
+- Expand any row to see full details: extracted data, line items, flags, approval workflow
+- The workflow timeline shows approvers left to right — green = approved, yellow = waiting, gray = not yet reached
+
+### Purchase Orders tab (Admin)
+
+- Table of all completed POs with PO number, supplier, amounts, approvers, and creation date
+- Total value in CHF shown at the bottom
+
+### Approving a request
+
+1. Select your employee identity in the sidebar
+2. Only your pending approvals will be visible
+3. Expand the row, optionally add a comment, click **Approve** or **Reject**
+4. The next approver in the chain becomes active immediately
+
+### Reset the database
+
+rm "C:\Users\I749275\Documents\Projetos\VS\BLP\po_automation\procurement.db" 2>/dev/null && echo "Deleted" || echo "Already gone"
 
 ---
 
-## Scaling to 500 requisitions / day
+## Troubleshooting
 
-1. **Replace SQLite with PostgreSQL** — already isolated in `database.py`.
-2. **Add a task queue** (Celery + Redis or just Python's `concurrent.futures`) — `workflow.process_email()` is stateless; parallelise trivially.
-3. **Real email integration** — swap the file-based `email_parser.py` for Microsoft Graph API or IMAP polling.
-4. **Approver notifications** — fire actual emails (SMTP / SendGrid) instead of waiting for someone to click in the dashboard.
-5. **Prompt caching** — the master-data block is static; Ollama (and Anthropic's API) cache repeated prefixes, so cost stays flat as volume grows.
+| Symptom | Cause | Fix |
+|---|---|---|
+| `llm_unavailable` flag on every email | Ollama not running or model not pulled | Run `ollama list`; if empty, run `ollama pull llama3.2` |
+| `Connection refused` on ERP submission | Mock ERP API not running | Start Window 1 (see above) |
+| Dashboard won't open | Streamlit not started or port in use | Re-run the streamlit command; check nothing else is on port 8501 |
+| Requisition stuck in FAILED | ERP was down when approval completed | Reset the database and reprocess the email |
+| `UnicodeEncodeError` in terminal | Windows console encoding | Use PowerShell instead of cmd.exe |
