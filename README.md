@@ -1,4 +1,4 @@
-# PO Automation — Setup & Run Guide
+# PO Automation — Run Guide & Assumptions
 
 End-to-end purchase order automation: reads procurement emails, extracts structured
 data with a local LLM, routes through a configurable approval chain, and submits
@@ -104,3 +104,32 @@ rm "C:\Users\I749275\Documents\Projetos\VS\BLP\po_automation\procurement.db" 2>/
 | Dashboard won't open | Streamlit not started or port in use | Re-run the streamlit command; check nothing else is on port 8501 |
 | Requisition stuck in FAILED | ERP was down when approval completed | Reset the database and reprocess the email |
 | `UnicodeEncodeError` in terminal | Windows console encoding | Use PowerShell instead of cmd.exe |
+
+---
+
+## Assumptions
+
+
+Email sender and content trust:
+  The From: address is trusted as the requester identity.
+  The content of the email is not verified to avoid prompt injection.
+
+Cost center fallback:
+  If the LLM cannot determine the cost center from the email,
+  the requester's default_cost_center from master_data.json is used.
+  If that is also missing, cost_center_code is null and the
+  requisition goes to NEEDS_INFO.
+
+Blocked supplier:
+  Requisition moves to FLAGGED. A human must intervene.
+  The system never auto-submits to a blocked supplier.
+
+Expired or missing quote:
+  Requisition moves to FAILED. Amount unverified → do not submit.
+
+Approver substituition:
+  No delegation of authority is in place.
+
+Sequential approvals only:
+  The chain is strictly sequential. Parallel approval paths
+  (e.g. two approvers at the same tier) are not supported.
