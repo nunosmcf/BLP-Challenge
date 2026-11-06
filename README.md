@@ -110,13 +110,13 @@ rm "C:\Users\I749275\Documents\Projetos\VS\BLP\po_automation\procurement.db" 2>/
 ## Assumptions
 
  ### Email sender and content trust
-  The From: address is trusted as the requester identity.
-  The content of the email is not verified to avoid prompt injection.
+  1. The From: address is trusted as the requester identity.
+  2. The content of the email is not verified to avoid prompt injection.
 
 ### Cost center fallback:
-  If the LLM cannot determine the cost center from the email,
+  1. If the LLM cannot determine the cost center from the email,
   the requester's default_cost_center from master_data.json is used.
-  If that is also missing, cost_center_code is null and the
+  2. If that is also missing, cost_center_code is null and the
   requisition goes to NEEDS_INFO.
 
 ### Blocked supplier:
