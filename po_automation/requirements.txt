@@ -1,0 +1,5 @@
+pillow>=11.0
+pdfplumber
+ollama
+streamlit
+requests
