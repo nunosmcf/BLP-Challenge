@@ -15,48 +15,6 @@ approved orders to the ERP API.
 
 ---
 
-## One-time setup
-
-### 1. Install Ollama
-
-Download and install from **https://ollama.com**. It installs a background service
-automatically.
-
-Then pull the model (downloads ~2 GB, takes a few minutes):
-
-```powershell
-ollama pull llama3.2
-```
-
-Verify it worked:
-
-```powershell
-ollama list
-# Should show: llama3.2
-```
-
-### 2. Create and activate the virtual environment
-
-```powershell
-cd C:\Users\I749275\Documents\Projetos\VS\BLP
-python -m venv venv
-```
-
-### 3. Install Python dependencies
-
-```powershell
-venv\Scripts\python.exe -m pip install -r po_automation\requirements.txt
-```
-
-Dependencies installed:
-- `pdfplumber` — PDF text extraction
-- `ollama` — Python client for local LLM
-- `streamlit` — dashboard UI
-- `requests` — HTTP client for ERP API
-- `pillow>=11.0` — required by pdfplumber on Python 3.14
-
----
-
 ## Running the solution
 
 You need **three things running** at the same time. Open a separate PowerShell window
