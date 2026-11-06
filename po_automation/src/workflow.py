@@ -113,6 +113,12 @@ def process_email(eml_path: str | Path) -> str:
         _set_state(rid, "NEEDS_INFO")
         return rid
 
+    if not extraction.get("requested_delivery_date"):
+        missing.append("requested_delivery_date")
+        database.update_requisition(rid, missing_fields_json=json.dumps(missing))
+        _set_state(rid, "NEEDS_INFO")
+        return rid
+
     # 8. Build approval chain
     chain = approval_engine.resolve_chain(
         total_chf=total_chf or 0,
